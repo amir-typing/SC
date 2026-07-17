@@ -1,0 +1,1719 @@
+{
+  "name": "Healthcare Triage Engine V2",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"doctor_name\": \"={{$('Prepare Appointment Data').first().json.doctor_name}}\",\n  \"doctor_email\": \"={{$('Prepare Appointment Data').first().json.doctor_email}}\",\n  \"appointment_date\": \"={{$('Prepare Appointment Data').first().json.appointment_date}}\",\n  \"appointment_time\": \"={{$('Prepare Appointment Data').first().json.appointment_time}}\",\n  \"appointment_status\": \"={{$('Prepare Appointment Data').first().json.status}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        528,
+        352
+      ],
+      "id": "32ac4029-2a49-47df-ade5-f95e30dd6835",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = JSON.parse($json.output);\n\nreturn {\n  symptoms: $('triage').first().json.body.message,\n  urgency: result.urgency,\n  category: result.category,\n  reasoning: result.reasoning,\n  rule_triggered: result.rule_triggered\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        352,
+        192
+      ],
+      "id": "d204d219-459f-49c8-abb1-6370b5611a3d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={\n  \"model\": \"mistral\",\n  \"prompt\": \"You are a healthcare triage AI system.\\n\\nYou MUST classify the patient's symptoms using rule-based reasoning.\\n\\nURGENCY RULES:\\n1. If chest pain AND fever -> High\\n2. If severe pain OR breathing difficulty -> High\\n3. If mild fever AND cough -> Medium\\n4. If headache only -> Low\\n5. If fever for more than 1 day -> Medium\\n6. If symptoms are minor and not severe -> Low\\n\\nCATEGORY RULES:\\nThe category MUST be exactly one of these values only:\\nGeneral, Routine, Follow-up, Acute Care, Emergency, Cardiology, ENT, Dermatology, Pediatrics, Orthopedics, Gastroenterology, Psychiatry, Neurology\\n\\nCategory selection guide:\\n- Chest pain, breathing difficulty, severe pain -> Emergency\\n- Fever, cough, flu-like symptoms -> Acute Care\\n- Headache only or minor symptoms -> Routine\\n- Follow-up visit or ongoing mild symptoms -> Follow-up\\n- Heart/chest related symptoms -> Cardiology\\n- Ear, nose, throat symptoms -> ENT\\n- Skin/rash symptoms -> Dermatology\\n- Child patient symptoms -> Pediatrics\\n- Bone/joint/muscle injury -> Orthopedics\\n- Stomach/digestive symptoms -> Gastroenterology\\n- Anxiety, stress, mental health symptoms -> Psychiatry\\n- Numbness, seizure, migraine, nerve symptoms -> Neurology\\n- If unsure -> General\\n\\nOUTPUT FORMAT STRICT JSON ONLY:\\n{\\n  \\\"urgency\\\": \\\"Low | Medium | High\\\",\\n  \\\"category\\\": \\\"\\\",\\n  \\\"reasoning\\\": \\\"\\\",\\n  \\\"rule_triggered\\\": \\\"\\\",\\n  \\\"recommendation\\\": \\\"\\\"\\n}\\n\\nPatient message:\\n{{ $json.body.message }}\\n\\nReturn ONLY valid JSON. No markdown. No extra text.\",\n  \"stream\": false\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2b2254fd-ca7b-425c-be61-be2cb78b7207",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "mistral:latest",
+        "options": {
+          "format": "json"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        224
+      ],
+      "id": "1bc11da3-bf15-4b43-a8a7-71273ca4ea62",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "LJTmmTGTeY738qEl",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "register-doctor",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        656
+      ],
+      "id": "9a931af6-8235-42ed-a6cd-e75fc506fc01",
+      "name": "Admin Register Doctor Webhook",
+      "webhookId": "e282f122-030b-4e47-b288-9b2be9577a75"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "doctors",
+          "mode": "list",
+          "cachedResultName": "doctors"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_available": "={{$json.body.availability === 'Available'}}",
+            "name": "={{$json.body.name}}",
+            "email": "= {{$json.body.email}}",
+            "phone": "={{$json.body.phone}}",
+            "category": "= {{$json.body.category}}",
+            "specialization": "={{$json.body.specialization}}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "specialization",
+              "displayName": "specialization",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_available",
+              "displayName": "is_available",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -64,
+        656
+      ],
+      "id": "129a8242-a7f5-43f1-bbef-2c48c2f7911e",
+      "name": "Insert doctors",
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"message\": \"Doctor registered successfully\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        144,
+        656
+      ],
+      "id": "80f870e2-574e-4669-a30f-50d99adb6c31",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM doctors\nWHERE is_available = true\nAND (\n  category = '{{ $json.body.category }}'\n  OR specialization = '{{ $json.body.category }}'\n  OR category = 'General'\n  OR specialization = 'General Medicine'\n)\nORDER BY\n  CASE\n    WHEN category = '{{ $json.body.category }}' THEN 1\n    WHEN specialization = '{{ $json.body.category }}' THEN 2\n    WHEN specialization = 'General Medicine' THEN 3\n    WHEN category = 'General' THEN 4\n    ELSE 5\n  END\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -64,
+        352
+      ],
+      "id": "b590ec7c-2131-4046-a0c5-965742135c6c",
+      "name": "Find Suitable Doctor",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const doctor = $('Find Suitable Doctor').first().json || {};\nconst webhook = $('Book Appointment Webhook').first().json.body;\n\nreturn [\n  {\n    json: {\n      patient_symptoms: webhook.symptoms,\n      urgency: webhook.urgency,\n      category: webhook.category,\n      doctor_id: doctor.id || null,\n      doctor_name: doctor.name || \"Pending assignment\",\n      doctor_email: doctor.email || \"N/A\",\n      appointment_date: webhook.appointment_date,\n      appointment_time: webhook.appointment_time,\n      patient_email: webhook.patient_email,\n      patient_phone: webhook.patient_phone,\n      status: \"Confirmed\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        352
+      ],
+      "id": "b5326072-7a97-4f4a-b28c-e8cadd9356d6",
+      "name": "Prepare Appointment Data"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list",
+          "cachedResultName": "appointments"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "doctor_id": "= {{$json.doctor_id}}",
+            "patient_symptoms": "={{$json.patient_symptoms}}",
+            "urgency": "= {{$json.urgency}}",
+            "category": "= {{$json.category}}",
+            "appointment_date": "={{ $json.appointment_date || null }}",
+            "appointment_time": "={{$json.appointment_time}}",
+            "patient_email": "= {{$json.patient_email}}",
+            "patient_phone": "= {{$json.patient_phone}}",
+            "status": "={{$json.status}}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "patient_symptoms",
+              "displayName": "patient_symptoms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "doctor_id",
+              "displayName": "doctor_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "appointment_date",
+              "displayName": "appointment_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "appointment_time",
+              "displayName": "appointment_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "patient_email",
+              "displayName": "patient_email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "patient_phone",
+              "displayName": "patient_phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        336,
+        352
+      ],
+      "id": "41d2cd59-387b-4593-bf08-e17426462019",
+      "name": "Insert Appointment",
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "history",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        656
+      ],
+      "id": "4c76890b-1c30-40b2-bdf7-50983220398f",
+      "name": "History Webhook",
+      "webhookId": "dafcf965-9e86-40ee-9816-96286f23df32"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  id,\n  patient_symptoms,\n  urgency,\n  category,\n  doctor_id,\n  appointment_date,\n  appointment_time,\n  patient_email,\n  patient_phone,\n  status,\n  created_at\nFROM appointments\nWHERE patient_email = '{{ $(\"History Webhook\").first().json.body.patient_email }}'\nORDER BY created_at DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        608,
+        656
+      ],
+      "id": "b1916368-c97d-43b3-af61-aa3a71452aae",
+      "name": "Get Patient History",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": true,\n  \"history\": \"={{$items('Get Patient History').map(item => item.json)}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        816,
+        656
+      ],
+      "id": "174c3367-e8a3-4bf4-9a90-a1c32c4a1a9d",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"urgency\": \"={{$('Code in JavaScript').first().json.urgency}}\",\n  \"category\": \"={{$('Code in JavaScript').first().json.category}}\",\n  \"reasoning\": \"={{$('Code in JavaScript').first().json.reasoning}}\",\n  \"rule_triggered\": \"={{$('Code in JavaScript').first().json.rule_triggered}}\",\n  \"recommendation\": \"={{$('Code in JavaScript').first().json.recommendation || ''}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        720,
+        192
+      ],
+      "id": "6cc3a200-e3be-4a26-a5ef-c6393210da90",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "book-appointment",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        352
+      ],
+      "id": "0b0cd9d0-36e0-4f63-9f31-15f9cc567a86",
+      "name": "Book Appointment Webhook",
+      "webhookId": "7d18d6df-6849-440c-a1b5-5a0b9a9af426"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "triage",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -320,
+        192
+      ],
+      "id": "ac2f1d05-a795-475d-bb8e-974bb98bc13e",
+      "name": "triage",
+      "webhookId": "882aae53-3dfb-4a02-8abc-d71abbb83d73"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-appointments",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        848
+      ],
+      "id": "4ea05bab-e831-4708-9f20-1bac47aca314",
+      "name": "Admin Appointments Webhook",
+      "webhookId": "fd61a79f-0e37-41a6-8fdd-bec5ff9a47b8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id,\n  a.patient_symptoms,\n  a.urgency,\n  a.category,\n  a.appointment_date,\n  a.appointment_time,\n  a.patient_email,\n  a.patient_phone,\n  a.status,\n  a.created_at,\n  d.name AS doctor_name,\n  d.email AS doctor_email\nFROM appointments a\nLEFT JOIN doctors d ON a.doctor_id = d.id\nORDER BY a.created_at DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -96,
+        848
+      ],
+      "id": "60f49153-9047-416f-9413-7af927555d5a",
+      "name": "Get All Appointments",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        368,
+        848
+      ],
+      "id": "002a0a22-714d-48b6-9816-5c25bc2f9047",
+      "name": "Respond to Webhook4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const appointments = $input.all().map(item => item.json);\n\nreturn [\n  {\n    json: {\n      success: true,\n      appointments\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        848
+      ],
+      "id": "3436de62-00f4-4278-aac9-03efd1b5e41b",
+      "name": "Format Admin Appointments"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "doctors",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        1024
+      ],
+      "id": "edff3408-3d08-45f4-8268-500c569ed314",
+      "name": "Doctor List Webhook",
+      "webhookId": "fd61a79f-0e37-41a6-8fdd-bec5ff9a47b8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  id,\n  name,\n  email,\n  phone,\n  specialization,\n  category,\n  is_available,\n  created_at\nFROM doctors\nORDER BY created_at DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -96,
+        1024
+      ],
+      "id": "09fa5b77-bbe9-4f2e-be91-26682be2adb9",
+      "name": "Get All Doctors",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const doctors = $input.all()\n  .map(item => item.json)\n  .filter(row => row && Object.keys(row).length > 0);\n\nreturn [\n  {\n    json: {\n      success: true,\n      doctors\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        1024
+      ],
+      "id": "402d8f44-7e96-4b04-9d3b-4030687b280f",
+      "name": "Format Doctors"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        368,
+        1024
+      ],
+      "id": "c256c84f-3731-4280-84dd-560638c6a19e",
+      "name": "Respond to Webhook5"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin-dashboard",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        1200
+      ],
+      "id": "229838c3-5f9f-4213-bbe4-b7486fde0d2c",
+      "name": "Admin Dashboard Webhook",
+      "webhookId": "fd61a79f-0e37-41a6-8fdd-bec5ff9a47b8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT COUNT(*) FROM doctors) AS total_doctors,\n  (SELECT COUNT(*) FROM appointments WHERE appointment_date = CURRENT_DATE) AS today_appointments,\n  (SELECT COUNT(*) FROM triage_results) AS completed_triage_cases,\n  1 AS pending_payments;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -96,
+        1200
+      ],
+      "id": "ec37e96d-2f08-4cbe-a48e-70d27600b632",
+      "name": "Get Dashboard Stats",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        144,
+        1200
+      ],
+      "id": "a3588ea2-c27f-4135-8104-8d17a1fa1242",
+      "name": "Respond to Webhook6"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "triage_results",
+          "mode": "list",
+          "cachedResultName": "triage_results"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "symptoms": "= {{$json.symptoms}}",
+            "urgency": "={{$json.urgency}}",
+            "category": "={{$json.category}}",
+            "reasoning": "= {{$json.reasoning}}",
+            "rule_triggered": "={{$json.rule_triggered}}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "symptoms",
+              "displayName": "symptoms",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reasoning",
+              "displayName": "reasoning",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "rule_triggered",
+              "displayName": "rule_triggered",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        544,
+        192
+      ],
+      "id": "7e655719-2d25-4399-946e-7ce80d57b648",
+      "name": "Insert Triage Result",
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "available-slots",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -304,
+        512
+      ],
+      "id": "2af23afb-b43c-480f-825e-794ea22b7b5d",
+      "name": "Available Slots Webhook",
+      "webhookId": "7d18d6df-6849-440c-a1b5-5a0b9a9af426"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT appointment_time\nFROM appointments\nWHERE appointment_date = '{{ $json.body.appointment_date }}'\nAND status IN ('Booked', 'Confirmed', 'Pending');",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -64,
+        512
+      ],
+      "id": "486503b2-7db2-415c-9833-7d53c6884a27",
+      "name": "Get Booked Slots",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allSlots = [];\n\nfor (let hour = 9; hour <= 18; hour++) {\n  for (const minute of [0, 30]) {\n    if (hour === 18 && minute === 30) continue;\n\n    const h12 = hour > 12 ? hour - 12 : hour;\n    const ampm = hour >= 12 ? 'PM' : 'AM';\n    const mm = minute === 0 ? '00' : '30';\n    allSlots.push(`${h12}:${mm} ${ampm}`);\n  }\n}\n\nconst booked = $input.all()\n  .map(item => item.json.appointment_time)\n  .filter(Boolean);\n\nreturn [\n  {\n    json: {\n      success: true,\n      available_slots: allSlots.filter(slot => !booked.includes(slot))\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        512
+      ],
+      "id": "8919b4b9-a29e-4194-ad08-59cdf1fe415a",
+      "name": "Format Available Slots"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "my-appointments",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        384,
+        512
+      ],
+      "id": "290e6d89-b429-4b5c-8fac-909aa8092974",
+      "name": "My Appointments Webhook",
+      "webhookId": "7d18d6df-6849-440c-a1b5-5a0b9a9af426"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id,\n  a.patient_symptoms,\n  a.urgency,\n  a.category,\n  a.appointment_date,\n  a.appointment_time,\n  a.patient_email,\n  a.patient_phone,\n  a.status,\n  a.created_at,\n  d.name AS doctor_name,\n  d.email AS doctor_email,\n  d.specialization AS doctor_specialization\nFROM appointments a\nLEFT JOIN doctors d ON a.doctor_id = d.id\nWHERE LOWER(TRIM(a.patient_email)) = LOWER(TRIM('{{ $json.body.patient_email || $json.body.email }}'))\nORDER BY a.created_at DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        608,
+        512
+      ],
+      "id": "f0be99cf-8671-4e04-a0a7-a07b563431e3",
+      "name": "Get My Appointments",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const appointments = $input.all()\n  .map(item => item.json)\n  .filter(item => item && item.id);\n\nreturn [\n  {\n    json: {\n      success: true,\n      appointments\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        512
+      ],
+      "id": "212df1b3-988f-4405-91a6-a4035e46acf8",
+      "name": "Format My Appointments"
+    },
+    {
+      "parameters": {
+        "chatId": "=={{ $json.telegram_chat_id }}",
+        "text": "==🏥 MedCare Appointment Reminder\n\nHello,\n\nThis is a reminder for your upcoming appointment.\n\n👨‍⚕️ Doctor: {{ $json.doctor_name || 'Pending assignment' }}\n📅 Date: {{ $json.appointment_date }}\n🕒 Time: {{ $json.appointment_time }}\n📋 Category: {{ $json.category }}\n⚠️ Urgency: {{ $json.urgency }}\n✅ Status: {{ $json.status }}\n\nPlease arrive 15 minutes early.\n\nThis is an automated message from MedCare.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1072,
+        1152
+      ],
+      "id": "03c9fb4d-1186-4427-88b0-f88a2058bc3b",
+      "name": "Send a text message",
+      "webhookId": "131f222f-e50b-4f31-95a0-921e6d63b80a",
+      "credentials": {
+        "telegramApi": {
+          "id": "d2O7KlJZQMN0yjj0",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        688,
+        896
+      ],
+      "id": "74e8987a-d5c0-4944-ab81-08adf7a42cc0",
+      "name": "Telegram Trigger",
+      "webhookId": "d48acc38-7192-4784-ad1d-dc6c0321582c",
+      "credentials": {
+        "telegramApi": {
+          "id": "d2O7KlJZQMN0yjj0",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $json.message || {};\nconst text = String(message.text || '').trim();\nconst chatId = message.chat?.id;\nconst username = message.chat?.username || null;\n\nconst match = text.match(/^\\/link(?:@\\w+)?\\s+([^\\s@]+@[^\\s@]+\\.[^\\s@]+)$/i);\n\nif (!chatId || !match) {\n  return [\n    {\n      json: {\n        valid: false,\n        telegram_chat_id: chatId ? String(chatId) : '',\n        patient_email: '',\n        telegram_username: username,\n        reply: 'Please link your MedCare account using:\\n/link your@email.com',\n      },\n    },\n  ];\n}\n\nreturn [\n  {\n    json: {\n      valid: true,\n      patient_email: match[1].trim().toLowerCase(),\n      telegram_chat_id: String(chatId),\n      telegram_username: username,\n      reply: `Your MedCare account ${match[1].trim().toLowerCase()} has been connected successfully.`,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        896
+      ],
+      "id": "31fe523e-a9c1-4867-9341-c9df2e9db7e1",
+      "name": "Parse Telegram Link"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO patient_telegram (\n  patient_email,\n  telegram_chat_id,\n  telegram_username,\n  is_active,\n  updated_at\n)\nVALUES (\n  '{{ $json.patient_email }}',\n  '{{ $json.telegram_chat_id }}',\n  NULLIF('{{ $json.telegram_username || \"\" }}', ''),\n  true,\n  CURRENT_TIMESTAMP\n)\nON CONFLICT (patient_email)\nDO UPDATE SET\n  telegram_chat_id = EXCLUDED.telegram_chat_id,\n  telegram_username = EXCLUDED.telegram_username,\n  is_active = true,\n  updated_at = CURRENT_TIMESTAMP\nRETURNING *;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1296,
+        784
+      ],
+      "id": "1ef25c8c-d674-405f-9142-80bb8545a913",
+      "name": "Save Telegram Account",
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Parse Telegram Link').first().json.telegram_chat_id }}",
+        "text": "=={{ $('Parse Telegram Link').first().json.reply }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1536,
+        752
+      ],
+      "id": "58dde6c0-fb46-4519-9835-0e05b768fe72",
+      "name": "Send Telegram Link Confirmation",
+      "webhookId": "131f222f-e50b-4f31-95a0-921e6d63b80a",
+      "credentials": {
+        "telegramApi": {
+          "id": "d2O7KlJZQMN0yjj0",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 19
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        672,
+        1152
+      ],
+      "id": "4ca0b00c-c162-47f3-99c3-35ab25537158",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  a.id,\n  a.patient_email,\n  a.appointment_date,\n  a.appointment_time,\n  a.status,\n  d.name AS doctor_name,\n  pt.telegram_chat_id\nFROM appointments a\nLEFT JOIN doctors d\n  ON a.doctor_id = d.id\nINNER JOIN patient_telegram pt\n  ON LOWER(TRIM(a.patient_email)) = LOWER(TRIM(pt.patient_email))\nWHERE a.appointment_date = CURRENT_DATE + INTERVAL '1 day'\n  AND a.status IN ('Confirmed', 'Booked', 'Pending')\n  AND pt.is_active = true\n  AND COALESCE(a.reminder_sent, false) = false;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        864,
+        1152
+      ],
+      "id": "a95dbc1b-5aa3-4dae-85a7-9c52327aa18a",
+      "name": "Get Upcoming Telegram Reminders",
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments\nSET\n  reminder_sent = true,\n  reminder_sent_at = CURRENT_TIMESTAMP\nWHERE id = {{ $('Get Upcoming Telegram Reminders').item.json.id }}\nRETURNING *;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1264,
+        1152
+      ],
+      "id": "7b94f7e7-4929-48c1-b47a-4835d5e28971",
+      "name": "Mark Reminder Sent",
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1a6b01a6-f7bd-4365-8daa-0fe2c92aa842",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1088,
+        896
+      ],
+      "id": "eeff5dc8-526c-4d0b-ad6a-b10a5187fa75",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "=={{ $json.telegram_chat_id }}",
+        "text": "=={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1296,
+        944
+      ],
+      "id": "ac5e0e7a-81c8-4571-b818-d77fa3968c43",
+      "name": "Send Instruction Message",
+      "webhookId": "34d4fbe4-f478-47a1-b150-bd4782755916",
+      "credentials": {
+        "telegramApi": {
+          "id": "d2O7KlJZQMN0yjj0",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "telegram-status",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        1344
+      ],
+      "id": "e96ee935-ee52-47f2-bfd7-2de0ef88e961",
+      "name": "Telegram Status Webhook",
+      "webhookId": "fd61a79f-0e37-41a6-8fdd-bec5ff9a47b8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  patient_email,\n  telegram_chat_id,\n  telegram_username,\n  is_active,\n  created_at,\n  updated_at\nFROM patient_telegram\nWHERE LOWER(TRIM(patient_email)) =\n      LOWER(TRIM('{{ $json.body.patient_email }}'))\nLIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        880,
+        1344
+      ],
+      "id": "7b999e66-58df-4470-9315-700203847940",
+      "name": "Check Telegram Status",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first()?.json ?? {};\n\nconst connected =\n  Boolean(row.telegram_chat_id) &&\n  row.is_active !== false;\n\nreturn [\n  {\n    json: {\n      success: true,\n      connected,\n      telegram_username: connected\n        ? row.telegram_username || null\n        : null,\n      telegram_chat_id: connected\n        ? String(row.telegram_chat_id)\n        : null,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        1344
+      ],
+      "id": "bc42827b-7cc0-4b6b-b4e8-5e46c71d5e54",
+      "name": "Format Telegram Status"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1280,
+        1344
+      ],
+      "id": "fdd5fe01-653a-4402-8da5-787c7dbb02ca",
+      "name": "Respond to Webhook7"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "telegram-disconnect",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        656,
+        1520
+      ],
+      "id": "6f5ec967-572e-4c46-a8c6-8c7edb720fd5",
+      "name": "Telegram Disconnect Webhook",
+      "webhookId": "fd61a79f-0e37-41a6-8fdd-bec5ff9a47b8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE patient_telegram\nSET\n  is_active = false,\n  updated_at = CURRENT_TIMESTAMP\nWHERE LOWER(TRIM(patient_email)) =\n      LOWER(TRIM('{{ $json.body.patient_email }}'))\nRETURNING\n  patient_email,\n  telegram_chat_id,\n  telegram_username,\n  is_active;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        880,
+        1520
+      ],
+      "id": "345396ea-242f-49c7-bf62-7aee6832df7a",
+      "name": "Disconnect Telegram",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "7gmJCVuwL39ew1Iq",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const row = $input.first()?.json ?? {};\n\nreturn [\n  {\n    json: {\n      success: true,\n      connected: false,\n      patient_email: row.patient_email || null,\n      message: row.patient_email\n        ? 'Telegram reminders have been disconnected.'\n        : 'No Telegram connection was found for this account.',\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        1520
+      ],
+      "id": "c6e726be-7666-4b78-b310-90c220cdbbc1",
+      "name": "Format Disconnect Result"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1280,
+        1520
+      ],
+      "id": "a0d25ced-f504-464f-a753-0338ee110c86",
+      "name": "Respond to Webhook8"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Insert Triage Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert doctors": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Register Doctor Webhook": {
+      "main": [
+        [
+          {
+            "node": "Insert doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Suitable Doctor": {
+      "main": [
+        [
+          {
+            "node": "Prepare Appointment Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Appointment Data": {
+      "main": [
+        [
+          {
+            "node": "Insert Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Appointment": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "History Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Patient History",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient History": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book Appointment Webhook": {
+      "main": [
+        [
+          {
+            "node": "Find Suitable Doctor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "triage": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Appointments Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get All Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Appointments": {
+      "main": [
+        [
+          {
+            "node": "Format Admin Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Admin Appointments": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Doctor List Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get All Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Doctors": {
+      "main": [
+        [
+          {
+            "node": "Format Doctors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Doctors": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Admin Dashboard Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Dashboard Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Dashboard Stats": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Triage Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Available Slots Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Booked Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Booked Slots": {
+      "main": [
+        [
+          {
+            "node": "Format Available Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Available Slots": {
+      "main": [
+        []
+      ]
+    },
+    "My Appointments Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get My Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get My Appointments": {
+      "main": [
+        [
+          {
+            "node": "Format My Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Telegram Link": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Telegram Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Telegram Account": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Link Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Upcoming Telegram Reminders": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Upcoming Telegram Reminders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminder Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Save Telegram Account",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Instruction Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Status Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check Telegram Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Telegram Status": {
+      "main": [
+        [
+          {
+            "node": "Format Telegram Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Telegram Status": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Disconnect Webhook": {
+      "main": [
+        [
+          {
+            "node": "Disconnect Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disconnect Telegram": {
+      "main": [
+        [
+          {
+            "node": "Format Disconnect Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Disconnect Result": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "Asia/Kuala_Lumpur",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "637d1e43-497f-477a-b78f-564819c47ca9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f2101de29bc4e805d1c30e54139829bac5fd67b68306acddbf4fc53c072ea83d"
+  },
+  "id": "p7KxKuGQIFt7hDjp",
+  "tags": []
+}
